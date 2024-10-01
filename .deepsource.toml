@@ -10,4 +10,4 @@ name = "go"
 enabled = true
 
   [analyzers.meta]
-  import_paths = ["github.com/holiman/uint256"]
+  import_paths = ["github.com/Sunnesoft/uint256"]

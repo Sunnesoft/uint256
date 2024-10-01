@@ -964,12 +964,7 @@ func TestCmpBig(t *testing.T) {
 	}
 }
 
-func TestRandomMulDivOverflowBuffered(t *testing.T) {
-	var p [8]uint64
-	var quot [8]uint64
-	var rem Int
-	var roundUp bool
-
+func TestRandomMulDivOverflowRoundUp(t *testing.T) {
 	zero := big.NewInt(0)
 	one := big.NewInt(1)
 	m := new(big.Int)
@@ -978,11 +973,11 @@ func TestRandomMulDivOverflowBuffered(t *testing.T) {
 		b1, f1 := randNums()
 		b2, f2 := randNums()
 		b3, f3 := randNums()
-		roundUp = randBool()
+		roundUp := randBool()
 
 		f1a, f2a, f3a := f1.Clone(), f2.Clone(), f3.Clone()
 
-		_, overflow := f1.MulDivOverflowBuffered(f1, f2, f3, p, quot, &rem, roundUp)
+		_, overflow := f1.MulDivOverflowRoundUp(f1, f2, f3, roundUp)
 		if b3.BitLen() == 0 {
 			b1.SetInt64(0)
 		} else {
@@ -1002,11 +997,7 @@ func TestRandomMulDivOverflowBuffered(t *testing.T) {
 	}
 }
 
-func TestRandomDivBuffered(t *testing.T) {
-	var quot Int
-	var rem Int
-	var roundUp bool
-
+func TestRandomDivRoundUp(t *testing.T) {
 	zero := big.NewInt(0)
 	one := big.NewInt(1)
 	m := new(big.Int)
@@ -1014,11 +1005,11 @@ func TestRandomDivBuffered(t *testing.T) {
 	for i := 0; i < 10000; i++ {
 		b1, f1 := randNums()
 		b2, f2 := randNums()
-		roundUp = randBool()
+		roundUp := randBool()
 
 		f1a, f2a := f1.Clone(), f2.Clone()
 
-		_ = f1.DivBuffered(f1, f2, &quot, &rem, roundUp)
+		_ = f1.DivRoundUp(f1, f2, roundUp)
 		if b2.BitLen() == 0 {
 			b1.SetInt64(0)
 		} else {

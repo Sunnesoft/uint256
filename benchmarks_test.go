@@ -950,6 +950,49 @@ func BenchmarkMulDivOverflow(b *testing.B) {
 
 }
 
+func BenchmarkMulDivOverflowRoundUp(b *testing.B) {
+	benchmarkUint256 := func(b *testing.B, factorsSamples, muldivSamples *[numSamples]Int) {
+		iter := (b.N + numSamples - 1) / numSamples
+
+		var roundUp bool
+
+		for j := 0; j < numSamples; j++ {
+			x := factorsSamples[j]
+
+			for i := 0; i < iter; i++ {
+				res := new(Int)
+				res.MulDivOverflowRoundUp(&x, &x, &muldivSamples[j], roundUp)
+			}
+		}
+	}
+
+	benchmarkBig := func(b *testing.B, factorsSamples, muldivSamples *[numSamples]big.Int) {
+		iter := (b.N + numSamples - 1) / numSamples
+
+		for j := 0; j < numSamples; j++ {
+			x := factorsSamples[j]
+
+			for i := 0; i < iter; i++ {
+				res := new(big.Int)
+				res.Mul(&x, &x)
+				res.Div(res, &muldivSamples[j])
+			}
+		}
+	}
+
+	b.Run("small/uint256", func(b *testing.B) { benchmarkUint256(b, &int32SamplesLt, &int32Samples) })
+	b.Run("div64/uint256", func(b *testing.B) { benchmarkUint256(b, &int64SamplesLt, &int64Samples) })
+	b.Run("div128/uint256", func(b *testing.B) { benchmarkUint256(b, &int128SamplesLt, &int128Samples) })
+	b.Run("div192/uint256", func(b *testing.B) { benchmarkUint256(b, &int192SamplesLt, &int192Samples) })
+	b.Run("div256/uint256", func(b *testing.B) { benchmarkUint256(b, &int256SamplesLt, &int256Samples) })
+	b.Run("small/big", func(b *testing.B) { benchmarkBig(b, &big32SamplesLt, &big32Samples) })
+	b.Run("div64/big", func(b *testing.B) { benchmarkBig(b, &big64SamplesLt, &big64Samples) })
+	b.Run("div128/big", func(b *testing.B) { benchmarkBig(b, &big128SamplesLt, &big128Samples) })
+	b.Run("div192/big", func(b *testing.B) { benchmarkBig(b, &big192SamplesLt, &big192Samples) })
+	b.Run("div256/big", func(b *testing.B) { benchmarkBig(b, &big256SamplesLt, &big256Samples) })
+
+}
+
 func BenchmarkHashTreeRoot(b *testing.B) {
 	var (
 		z   = &Int{1, 2, 3, 4}
