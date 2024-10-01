@@ -42,6 +42,12 @@ func randNums() (*big.Int, *Int) {
 	return b, f
 }
 
+func randBool() bool {
+	b, _ := rand.Int(rand.Reader, big.NewInt(2))
+
+	return b.Int64() == 1
+}
+
 func randHighNums() (*big.Int, *Int) {
 	//How many bits? 0-256
 	nbits := int64(256)
@@ -479,7 +485,7 @@ func TestUdivremQuick(t *testing.T) {
 	var (
 		u        = []uint64{1, 0, 0, 0, 0}
 		expected = new(Int)
-		rem Int
+		rem      Int
 	)
 	udivrem([]uint64{}, u, &Int{0, 1, 0, 0}, &rem)
 	copy(expected[:], u)
@@ -955,5 +961,76 @@ func TestCmpBig(t *testing.T) {
 		check(z, new(Int).SubUint64(z, 1).ToBig())               // z, z - 1
 		check(z, new(big.Int).Neg(new(Int).Set(z).ToBig()))      // z, -z
 		check(z, new(big.Int).Lsh(new(Int).Set(z).ToBig(), 256)) // z, z << 256
+	}
+}
+
+func TestRandomMulDivOverflowBuffered(t *testing.T) {
+	var p [8]uint64
+	var quot [8]uint64
+	var rem Int
+	var roundUp bool
+
+	zero := big.NewInt(0)
+	one := big.NewInt(1)
+	m := new(big.Int)
+
+	for i := 0; i < 10000; i++ {
+		b1, f1 := randNums()
+		b2, f2 := randNums()
+		b3, f3 := randNums()
+		roundUp = randBool()
+
+		f1a, f2a, f3a := f1.Clone(), f2.Clone(), f3.Clone()
+
+		_, overflow := f1.MulDivOverflowBuffered(f1, f2, f3, p, quot, &rem, roundUp)
+		if b3.BitLen() == 0 {
+			b1.SetInt64(0)
+		} else {
+			b1.DivMod(b1.Mul(b1, b2), b3, m)
+
+			if m.Cmp(zero) > 0 && roundUp {
+				b1.Add(b1, one)
+			}
+		}
+
+		if err := checkOverflow(b1, f1, overflow); err != nil {
+			t.Fatal(err)
+		}
+		if eq := checkEq(b1, f1); !eq {
+			t.Fatalf("Expected equality:\nf1= %x\nf2= %x\nf3= %x\n[ - ]==\nf= %x\nb= %x\noverflow=%t\n", f1a, f2a, f3a, f1, b1, overflow)
+		}
+	}
+}
+
+func TestRandomDivBuffered(t *testing.T) {
+	var quot Int
+	var rem Int
+	var roundUp bool
+
+	zero := big.NewInt(0)
+	one := big.NewInt(1)
+	m := new(big.Int)
+
+	for i := 0; i < 10000; i++ {
+		b1, f1 := randNums()
+		b2, f2 := randNums()
+		roundUp = randBool()
+
+		f1a, f2a := f1.Clone(), f2.Clone()
+
+		_ = f1.DivBuffered(f1, f2, &quot, &rem, roundUp)
+		if b2.BitLen() == 0 {
+			b1.SetInt64(0)
+		} else {
+			b1.DivMod(b1, b2, m)
+
+			if m.Cmp(zero) > 0 && roundUp {
+				b1.Add(b1, one)
+			}
+		}
+
+		if eq := checkEq(b1, f1); !eq {
+			t.Fatalf("Expected equality:\nf1= %x\nf2= %x\n[ - ]==\nf= %x\nb= %x\n", f1a, f2a, f1, b1)
+		}
 	}
 }

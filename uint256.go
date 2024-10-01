@@ -1361,3 +1361,85 @@ func (z *Int) Log10() uint {
 	}
 	return uint(t)
 }
+
+func (z *Int) DivBuffered(x, y, quot, rem *Int, roundUp bool) *Int {
+	if y.IsZero() {
+		return z.Clear()
+	}
+	if x.IsZero() {
+		return z.Clear()
+	}
+	if y.Gt(x) {
+		if roundUp {
+			return z.SetOne()
+		}
+
+		return z.Clear()
+	}
+	if x.Eq(y) {
+		return z.SetOne()
+	}
+
+	rem[0], rem[1], rem[2], rem[3] = 0, 0, 0, 0
+
+	if x.IsUint64() {
+		rem[0] = x[0] % y[0]
+		z.SetUint64(x[0] / y[0])
+
+		if roundUp && rem[0] > 0 {
+			var carry uint64
+			z[0], carry = bits.Add64(z[0], 1, 0)
+			z[1], _ = bits.Add64(z[1], 0, carry)
+		}
+
+		return z
+	}
+
+	quot[0], quot[1], quot[2], quot[3] = 0, 0, 0, 0
+	udivrem(quot[:], x[:], y, rem)
+	z[0], z[1], z[2], z[3] = quot[0], quot[1], quot[2], quot[3]
+
+	if roundUp {
+		if (rem[0] | rem[1] | rem[2] | rem[3]) != 0 {
+			var carry uint64
+			z[0], carry = bits.Add64(z[0], 1, 0)
+			z[1], carry = bits.Add64(z[1], 0, carry)
+			z[2], carry = bits.Add64(z[2], 0, carry)
+			z[3], _ = bits.Add64(z[3], 0, carry)
+
+			return z
+		}
+	}
+
+	return z
+}
+
+func (z *Int) MulDivOverflowBuffered(x, y, d *Int, p, quot [8]uint64, rem *Int, roundUp bool) (*Int, bool) {
+	if x.IsZero() || y.IsZero() || d.IsZero() {
+		return z.Clear(), false
+	}
+
+	quot[0], quot[1], quot[2], quot[3], quot[4], quot[5], quot[6], quot[7] = 0, 0, 0, 0, 0, 0, 0, 0
+	p[0], p[1], p[2], p[3], p[4], p[5], p[6], p[7] = 0, 0, 0, 0, 0, 0, 0, 0
+	rem[0], rem[1], rem[2], rem[3] = 0, 0, 0, 0
+
+	umul(x, y, &p)
+	udivrem(quot[:], p[:], d, rem)
+
+	overflow := (quot[4] | quot[5] | quot[6] | quot[7]) != 0
+	z[0], z[1], z[2], z[3] = quot[0], quot[1], quot[2], quot[3]
+
+	if roundUp {
+		if (rem[0] | rem[1] | rem[2] | rem[3]) != 0 {
+			var carry uint64
+			z[0], carry = bits.Add64(z[0], 1, 0)
+			z[1], carry = bits.Add64(z[1], 0, carry)
+			z[2], carry = bits.Add64(z[2], 0, carry)
+			z[3], carry = bits.Add64(z[3], 0, carry)
+
+			return z, overflow || carry != 0
+		}
+	}
+
+	return z, overflow
+}
