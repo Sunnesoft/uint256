@@ -1380,13 +1380,11 @@ func (z *Int) DivRoundUp(x, y *Int, roundUp bool) *Int {
 		return z.SetOne()
 	}
 
-	var rem Int
-
 	if x.IsUint64() {
-		rem[0] = x[0] % y[0]
+		rem := x[0] % y[0]
 		z.SetUint64(x[0] / y[0])
 
-		if roundUp && rem[0] > 0 {
+		if roundUp && rem > 0 {
 			var carry uint64
 			z[0], carry = bits.Add64(z[0], 1, 0)
 			z[1], _ = bits.Add64(z[1], 0, carry)
@@ -1396,8 +1394,13 @@ func (z *Int) DivRoundUp(x, y *Int, roundUp bool) *Int {
 	}
 
 	var quot Int
+	var rem *Int
 
-	udivrem(quot[:], x[:], y, &rem)
+	if roundUp {
+		rem = new(Int)
+	}
+
+	udivrem(quot[:], x[:], y, rem)
 	z[0], z[1], z[2], z[3] = quot[0], quot[1], quot[2], quot[3]
 
 	if roundUp {
@@ -1421,15 +1424,89 @@ func (z *Int) MulDivOverflowRoundUp(x, y, d *Int, roundUp bool) (*Int, bool) {
 	}
 
 	var quot, p [8]uint64
-	var rem Int
+	var rem *Int
 
 	umul(x, y, &p)
-	udivrem(quot[:], p[:], d, &rem)
+
+	if roundUp {
+		rem = new(Int)
+	}
+
+	udivrem(quot[:], p[:], d, rem)
 
 	overflow := (quot[4] | quot[5] | quot[6] | quot[7]) != 0
 	z[0], z[1], z[2], z[3] = quot[0], quot[1], quot[2], quot[3]
 
+	if roundUp && rem != nil {
+		if (rem[0] | rem[1] | rem[2] | rem[3]) != 0 {
+			var carry uint64
+			z[0], carry = bits.Add64(z[0], 1, 0)
+			z[1], carry = bits.Add64(z[1], 0, carry)
+			z[2], carry = bits.Add64(z[2], 0, carry)
+			z[3], carry = bits.Add64(z[3], 0, carry)
+
+			return z, overflow || carry != 0
+		}
+	}
+
+	return z, overflow
+}
+
+func (z *Int) MulRsh96OverflowRoundUp(x, y *Int, roundUp bool) (*Int, bool) {
+	if x.IsZero() || y.IsZero() {
+		return z.Clear(), false
+	}
+
+	var p [8]uint64
+
+	umul(x, y, &p)
+
+	z[0] = (p[1] >> 32) | (p[2] << 32)
+	z[1] = (p[2] >> 32) | (p[3] << 32)
+	z[2] = (p[3] >> 32) | (p[4] << 32)
+	z[3] = (p[4] >> 32) | (p[5] << 32)
+
+	overflow := (p[7] | p[6] | (p[5] >> 32)) != 0
+
 	if roundUp {
+		if (p[0] | (p[1] << 32)) != 0 {
+			var carry uint64
+			z[0], carry = bits.Add64(z[0], 1, 0)
+			z[1], carry = bits.Add64(z[1], 0, carry)
+			z[2], carry = bits.Add64(z[2], 0, carry)
+			z[3], carry = bits.Add64(z[3], 0, carry)
+
+			return z, overflow || carry != 0
+		}
+	}
+
+	return z, overflow
+}
+
+func (z *Int) Lsh96DivOverflowRoundUp(x, d *Int, roundUp bool) (*Int, bool) {
+	if x.IsZero() || d.IsZero() {
+		return z.Clear(), false
+	}
+
+	var quot, p [8]uint64
+
+	p[1] = (x[0] << 32)
+	p[2] = (x[0] >> 32) | (x[1] << 32)
+	p[3] = (x[1] >> 32) | (x[2] << 32)
+	p[4] = (x[2] >> 32) | (x[3] << 32)
+	p[5] = (x[3] >> 32)
+
+	var rem *Int
+	if roundUp {
+		rem = new(Int)
+	}
+
+	udivrem(quot[:], p[:], d, rem)
+
+	overflow := (quot[4] | quot[5] | quot[6] | quot[7]) != 0
+	z[0], z[1], z[2], z[3] = quot[0], quot[1], quot[2], quot[3]
+
+	if roundUp && rem != nil {
 		if (rem[0] | rem[1] | rem[2] | rem[3]) != 0 {
 			var carry uint64
 			z[0], carry = bits.Add64(z[0], 1, 0)

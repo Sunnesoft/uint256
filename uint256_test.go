@@ -1025,3 +1025,67 @@ func TestRandomDivRoundUp(t *testing.T) {
 		}
 	}
 }
+
+func TestMulRsh96OverflowRoundUp(t *testing.T) {
+	zero := big.NewInt(0)
+	one := big.NewInt(1)
+	q96, _ := new(big.Int).SetString("0x1000000000000000000000000", 0)
+	q96MinusOne := new(big.Int).Sub(q96, one)
+
+	for i := 0; i < 10000; i++ {
+		b1, f1 := randNums()
+		b2, f2 := randNums()
+		roundUp := randBool()
+
+		f1a, f2a := f1.Clone(), f2.Clone()
+
+		_, overflow := f1.MulRsh96OverflowRoundUp(f1, f2, roundUp)
+
+		b1.Mul(b1, b2)
+		b2.And(b1, q96MinusOne)
+		b1.Rsh(b1, 96)
+
+		if b2.Cmp(zero) > 0 && roundUp {
+			b1.Add(b1, one)
+		}
+
+		if err := checkOverflow(b1, f1, overflow); err != nil {
+			t.Fatal(err)
+		}
+		if eq := checkEq(b1, f1); !eq {
+			t.Fatalf("Expected equality:\nf1= %x\nf2= %x\n[ - ]==\nf= %x\nb= %x\noverflow=%t\n", f1a, f2a, f1, b1, overflow)
+		}
+	}
+}
+
+func TestLsh96DivOverflowRoundUp(t *testing.T) {
+	zero := big.NewInt(0)
+	one := big.NewInt(1)
+	m := new(big.Int)
+
+	for i := 0; i < 10000; i++ {
+		b1, f1 := randNums()
+		b2, f2 := randNums()
+		roundUp := randBool()
+
+		f1a, f2a := f1.Clone(), f2.Clone()
+
+		_, overflow := f1.Lsh96DivOverflowRoundUp(f1, f2, roundUp)
+
+		if b2.BitLen() == 0 {
+			b1.SetInt64(0)
+		} else {
+			b1.DivMod(b1.Lsh(b1, 96), b2, m)
+			if m.Cmp(zero) > 0 && roundUp {
+				b1.Add(b1, one)
+			}
+		}
+
+		if err := checkOverflow(b1, f1, overflow); err != nil {
+			t.Fatal(err)
+		}
+		if eq := checkEq(b1, f1); !eq {
+			t.Fatalf("Expected equality:\nf1= %x\nf2= %x\n[ - ]==\nf= %x\nb= %x\noverflow=%t\n", f1a, f2a, f1, b1, overflow)
+		}
+	}
+}
