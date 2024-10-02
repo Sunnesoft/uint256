@@ -1394,13 +1394,9 @@ func (z *Int) DivRoundUp(x, y *Int, roundUp bool) *Int {
 	}
 
 	var quot Int
-	var rem *Int
+	var rem Int
 
-	if roundUp {
-		rem = new(Int)
-	}
-
-	udivrem(quot[:], x[:], y, rem)
+	udivrem(quot[:], x[:], y, &rem)
 	z[0], z[1], z[2], z[3] = quot[0], quot[1], quot[2], quot[3]
 
 	if roundUp {
@@ -1424,20 +1420,16 @@ func (z *Int) MulDivOverflowRoundUp(x, y, d *Int, roundUp bool) (*Int, bool) {
 	}
 
 	var quot, p [8]uint64
-	var rem *Int
+	var rem Int
 
 	umul(x, y, &p)
 
-	if roundUp {
-		rem = new(Int)
-	}
-
-	udivrem(quot[:], p[:], d, rem)
+	udivrem(quot[:], p[:], d, &rem)
 
 	overflow := (quot[4] | quot[5] | quot[6] | quot[7]) != 0
 	z[0], z[1], z[2], z[3] = quot[0], quot[1], quot[2], quot[3]
 
-	if roundUp && rem != nil {
+	if roundUp {
 		if (rem[0] | rem[1] | rem[2] | rem[3]) != 0 {
 			var carry uint64
 			z[0], carry = bits.Add64(z[0], 1, 0)
@@ -1496,17 +1488,14 @@ func (z *Int) Lsh96DivOverflowRoundUp(x, d *Int, roundUp bool) (*Int, bool) {
 	p[4] = (x[2] >> 32) | (x[3] << 32)
 	p[5] = (x[3] >> 32)
 
-	var rem *Int
-	if roundUp {
-		rem = new(Int)
-	}
+	var rem Int
 
-	udivrem(quot[:], p[:], d, rem)
+	udivrem(quot[:], p[:], d, &rem)
 
 	overflow := (quot[4] | quot[5] | quot[6] | quot[7]) != 0
 	z[0], z[1], z[2], z[3] = quot[0], quot[1], quot[2], quot[3]
 
-	if roundUp && rem != nil {
+	if roundUp {
 		if (rem[0] | rem[1] | rem[2] | rem[3]) != 0 {
 			var carry uint64
 			z[0], carry = bits.Add64(z[0], 1, 0)
