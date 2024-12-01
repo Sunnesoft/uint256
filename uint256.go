@@ -13,6 +13,8 @@ import (
 	"math/bits"
 )
 
+//go:generate msgp
+
 // Int is represented as an array of 4 uint64, in little-endian order,
 // so that Int[3] is the most significant, and Int[0] is the least significant
 type Int [4]uint64

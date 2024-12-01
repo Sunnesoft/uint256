@@ -17,6 +17,8 @@ import (
 	"math/big"
 	"math/bits"
 	"strings"
+
+	"go.mongodb.org/mongo-driver/bson"
 )
 
 const (
@@ -845,4 +847,29 @@ func checkNumberS(input string) error {
 		return ErrLeadingZero
 	}
 	return nil
+}
+
+func (z *Int) MarshalBSON() ([]byte, error) {
+	txt, err := z.MarshalText()
+	if err != nil {
+		return nil, err
+	}
+
+	a, err := bson.Marshal(map[string]string{"i": string(txt)})
+
+	return a, err
+}
+
+func (z *Int) UnmarshalBSON(data []byte) error {
+	var d bson.D
+
+	if err := bson.Unmarshal(data, &d); err != nil {
+		return err
+	}
+
+	if v, ok := d.Map()["i"]; ok {
+		return z.UnmarshalText([]byte(v.(string)))
+	}
+
+	return fmt.Errorf("key 'i' missing")
 }
